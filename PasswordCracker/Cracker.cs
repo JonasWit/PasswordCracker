@@ -9,52 +9,84 @@ namespace PasswordCracker
 {
     public struct CharSet
     {
-        public const string Characters = @"ąęźżćłśĄĘĆŚŹŻŁabcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789~!@#$%^&*()_+}{?>.<*-,./';][\|`~";
+        public const string Numbers = @"0123456789";
+        public const string LowerCases = @"ąęźżćłśabcdefghijklmnopqrstuvwxyz";
+        public const string UpperCases = @"ĄĘĆŚŹŻŁABCDEFGHIJKLMNOPQRSTUVWXYZ";
+        public const string Specials = @"!@#$%^&*()_+}{?>.<*-,./';][\|`~";
     }
 
-    public class Cracker : IEnumerable
+    public class CrackerEventArgs : EventArgs
+    {
+        public ulong CombinationsChecked { get; set; }
+        public int LenghtsChecked { get; set; }
+    }
+
+    public class Cracker : IEnumerable<string>
     {
         private readonly string _password;
-        private readonly string _charSet;
-        private StringBuilder sb = new StringBuilder();
+        private bool _passwordFound;
+        private StringBuilder sb = new();
 
         private ulong _lenght;
-        private uint _minLenght;
-        private uint _maxLenght;
 
-        public Cracker(string password, string charSet)
+        public int MaxLen { get; set; } = 2;
+        public bool UseNumbers { get; set; } 
+        public bool UseLowerCases { get; set; }
+        public bool UseUpperCases { get; set; } 
+        public bool UseSpecials { get; set; }
+
+        private string CreateCharSet()
         {
-            _password = password;
-            _charSet = charSet;
-            _maxLenght = 16;
-            _minLenght = 1;
+            var sBuilder = new StringBuilder();
+            if (UseNumbers) sBuilder.Append(CharSet.Numbers);
+            if (UseLowerCases) sBuilder.Append(CharSet.LowerCases);
+            if (UseUpperCases) sBuilder.Append(CharSet.UpperCases);
+            if (UseSpecials) sBuilder.Append(CharSet.Specials);
+
+            return sBuilder.ToString();
         }
 
-        public IEnumerator GetEnumerator()
+        public Cracker(string password)
         {
-            _lenght = (ulong)_charSet.Length;
-            for (var x = _minLenght; x <= _maxLenght; x++)
+            _password = password;
+        }
+
+        public IEnumerator<string> GetEnumerator() 
+        {
+            var cSet = CreateCharSet();
+            _lenght = (ulong)cSet.Length;
+            for (var x = 1; x <= MaxLen; x++)
             {
-                ulong total = (ulong)Math.Pow((double)_charSet.Length, (double)x);
+                if (_passwordFound) break;
+      
+                ulong total = (ulong)Math.Pow((ulong)cSet.Length, (ulong)x);
                 ulong counter = 0;
-                while (counter < total)
+
+                while ((counter < total) && !_passwordFound)
                 {
-                    string a = Factor(counter, x - 1);
-                    yield return a;
+                    string str = Factor(counter, x - 1, cSet);
+                    if (str.Equals(_password)) _passwordFound = true;
+                    yield return str;
                     counter++;
                 }
             }
         }
-        private string Factor(ulong counter, double power)
+
+        private string Factor(ulong counter, double power, string charSet)
         {
             sb.Length = 0;
             while (power >= 0)
             {
-                sb = sb.Append(_charSet[(int)(counter % _lenght)]);
+                sb = sb.Append(charSet[(int)(counter % _lenght)]);
                 counter /= _lenght;
                 power--;
             }
             return sb.ToString();
+        }
+
+        IEnumerator IEnumerable.GetEnumerator()
+        {
+            return ((IEnumerable)GetEnumerator()).GetEnumerator();
         }
     }
 }
